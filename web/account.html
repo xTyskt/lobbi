@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lobbi dashboard</title>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<nav class="nav" aria-label="Main"><div class="wrap">
+  <a class="mark" href="index.html">lobbi</a>
+  <a class="l" href="docs.html">Docs</a>
+  <span id="who" class="note"></span>
+  <button class="btn sm ghost" id="out" type="button" hidden>Sign out</button>
+</div></nav>
+
+<main class="wrap acct" id="app" aria-live="polite">
+  <p class="note">Loading...</p>
+</main>
+
+<script type="module">
+import cfg from './config.js';
+
+const SB = cfg.authUrl.replace(/\/+$/, '');
+const configured = !SB.includes('YOUR-AUTH') && !cfg.authKey.includes('YOUR-AUTH');
+const TIERS = {
+  0: { label: 'Free', apis: 3, players: 8, lobbies: 25, conns: 150, turn: 3000 },
+  1: { label: 'Indie', apis: 10, players: 16, lobbies: 150, conns: 1000, turn: 30000 },
+  2: { label: 'Studio', apis: 50, players: 32, lobbies: 1000, conns: 8000, turn: 300000 },
+};
+const FREE = TIERS[0];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const app = $('app');
+let session = null;
+try { session = JSON.parse(localStorage.getItem('lobbi.session')); } catch {}
+const save = (s) => { session = s; s ? localStorage.setItem('lobbi.session', JSON.stringify(s)) : localStorage.removeItem('lobbi.session'); };
+
+// Sign-in returns to this page with the session in the url fragment.
+let hashError = '';
+if (location.hash.includes('access_token')) {
+  const p = new URLSearchParams(location.hash.slice(1));
+  save({ access_token: p.get('access_token'), refresh_token: p.get('refresh_token'), expires_at: Date.now() + (Number(p.get('expires_in')) || 3600) * 1000 });
+  history.replaceState(null, '', location.pathname);
+} else if (location.hash.includes('error')) {
+  hashError = new URLSearchParams(location.hash.slice(1)).get('error_description') || 'Sign-in failed.';
+  history.replaceState(null, '', location.pathname);
+}
+
+async function fresh() {
+  if (!session) throw new Error('Not signed in');
+  if (session.expires_at - Date.now() > 60_000) return session.access_token;
+  const r = await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: cfg.authKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: session.refresh_token }) });
+  if (!r.ok) { save(null); throw new Error('Your session expired. Please sign in again.'); }
+  const j = await r.json();
+  save({ access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + j.expires_in * 1000 });
+  return session.access_token;
+}
+async function api(path, { method = 'GET', body, prefer } = {}) {
+  const token = await fresh();
+  const r = await fetch(SB + path, { method, headers: { apikey: cfg.authKey, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(prefer ? { Prefer: prefer } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const text = await r.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!r.ok) throw new Error(data?.message || data?.msg || `Request failed (${r.status})`);
+  return data;
+}
+const signIn = () => { location.href = `${SB}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(location.origin + location.pathname)}`; };
+async function signOut() {
+  try { await fetch(`${SB}/auth/v1/logout`, { method: 'POST', headers: { apikey: cfg.authKey, Authorization: `Bearer ${session?.access_token}` } }); } catch {}
+  save(null); render();
+}
+$('out').addEventListener('click', signOut);
+
+const parseOrigins = (t) => [...new Set(t.split(/[\n,]+/).map((x) => x.trim().replace(/\/+$/, '')).filter(Boolean))];
+const slug = (n) => (n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'game') + '-' + Math.random().toString(36).slice(2, 6);
+const wsUrl = cfg.url;
+
+function signedOut(msg) {
+  app.innerHTML = `<section class="card"><h2>Sign in to create an API</h2>
+    <p class="sub">Sign in with Google, then create an API: give it a name, get its public key and choose which websites may use it. Every API has its own lobbies, completely separate from your other APIs. Free tier, per API: ${FREE.players} players per lobby, ${FREE.lobbies} open lobbies, ${FREE.conns} simultaneous connections. Connection setup is unlimited; the relay (TURN) has a total allowance.</p>
+    ${msg ? `<p class="err">${esc(msg)}</p>` : ''}
+    ${configured ? '<button class="btn" id="go" type="button">Sign in with Google</button>' : '<p class="err">Sign-in is not available yet.</p>'}
+    <p class="note" style="margin-top:12px">We only receive your name and email from Google, to identify your account.</p></section>`;
+  $('go')?.addEventListener('click', signIn);
+}
+
+function gameCard(g) {
+  const t = TIERS[g.tier] || FREE;
+  const limit = g.turn_limit ?? t.turn;
+  const used = Math.min(g.turn_used || 0, limit);
+  const pct = Math.min(100, Math.round(((g.turn_used || 0) / limit) * 100));
+  return `<section class="card" data-id="${esc(g.id)}">
+    <div class="row sp"><h3 style="margin:0">${esc(g.name)} <span class="tag">${t.label} tier ${g.tier}</span>${g.suspended ? ' <span class="tag">Suspended</span>' : ''}</h3><span class="note">id: ${esc(g.id)}</span></div>
+    <p class="note" style="margin:10px 0 4px">Public key</p>
+    <div class="row"><span class="key">${esc(g.public_key)}</span><button class="btn sm ghost" data-act="copy" data-v="${esc(g.public_key)}" type="button">Copy</button></div>
+    <p class="note" style="margin:14px 0 6px">Relay used: ${used.toLocaleString()} of ${limit.toLocaleString()} in total. Connection setup is unlimited.</p>
+    <div class="meter"><i style="width:${pct}%"></i></div>
+    ${(g.turn_used || 0) >= limit ? '<p class="note err" style="margin-top:8px">The relay allowance is used up. Players who cannot connect directly cannot join this API.</p>' : ''}
+    <p class="note" style="margin-top:8px">This tier: ${t.players} players per lobby, ${t.lobbies} open lobbies, ${t.conns} simultaneous connections.</p>
+    <label style="margin-top:12px">Allowed origins (one per line, for example https://mygame.example.com)<textarea data-f="origins">${esc((g.origins || []).join('\n'))}</textarea></label>
+    <div class="row" style="margin-top:12px"><button class="btn sm" data-act="save" type="button">Save origins</button>
+      <button class="btn sm ghost" data-act="rotate" type="button">Rotate key</button><button class="btn sm danger" data-act="delete" type="button">Delete API</button><span class="note" data-f="msg"></span></div></section>`;
+}
+
+async function signedIn() {
+  const [user, games] = await Promise.all([
+    api('/auth/v1/user'),
+    api('/rest/v1/games?select=id,name,public_key,origins,suspended,tier,turn_limit,turn_used&order=created_at.asc'),
+  ]);
+  $('who').textContent = user.email || '';
+  $('out').hidden = false;
+  const freeCount = games.filter((g) => g.tier === 0).length;
+  const pct = Math.min(100, Math.round((freeCount / FREE.apis) * 100));
+  const first = games[0];
+  const full = freeCount >= FREE.apis;
+  app.innerHTML = `<section class="card"><h2 style="margin:0 0 10px">Your account</h2>
+      <p class="note" style="margin:0 0 8px">${freeCount} of ${FREE.apis} Free-tier APIs</p><div class="meter"><i style="width:${pct}%"></i></div>
+      <p class="note" style="margin-top:10px">Each API has its own key and its own lobbies. Lobbies in one API are never visible to another, even on the same account. <a href="index.html#plans">See tiers</a></p></section>
+    ${games.map(gameCard).join('')}
+    <section class="card"><h3 style="margin-top:0">New API</h3>
+      <div class="row" style="align-items:stretch"><label style="flex:1;min-width:200px">Name<input id="gname" maxlength="60" placeholder="My game"></label></div>
+      <label style="margin-top:12px">Allowed origins (optional now, add later)<textarea id="gorig" placeholder="https://mygame.example.com"></textarea></label>
+      <div class="row" style="margin-top:12px"><button class="btn sm" id="create" type="button" ${full ? 'disabled' : ''}>Create API</button><span class="note" id="cmsg">${full ? 'You have reached the API limit for a Free account.' : ''}</span></div></section>
+    <section class="card"><h3 style="margin-top:0">Use it in your game</h3>
+<pre><code>import { Lobbi } from './lobbi.js';
+const net = await Lobbi.connect({ key: '${esc(first?.public_key || 'pk_...')}', url: '${esc(wsUrl)}' });
+const lobby = await net.joinOrCreate({ name: 'room-1', max: 8 });</code></pre>
+      <p class="note">Full reference in the <a href="docs.html">docs</a>.</p></section>`;
+
+  $('create').addEventListener('click', async () => {
+    const name = $('gname').value.trim();
+    const msg = $('cmsg');
+    if (!name) { msg.textContent = 'Give the API a name.'; return; }
+    msg.textContent = 'Creating...';
+    try { await api('/rest/v1/games', { method: 'POST', body: { id: slug(name), name, origins: parseOrigins($('gorig').value) }, prefer: 'return=minimal' }); render(); }
+    catch (e) { msg.textContent = e.message; msg.className = 'note err'; }
+  });
+  app.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
+    const card = b.closest('[data-id]');
+    const msg = card?.querySelector('[data-f=msg]');
+    const id = card?.dataset.id;
+    const say = (t, bad) => { if (msg) { msg.textContent = t; msg.className = 'note' + (bad ? ' err' : ''); } };
+    try {
+      if (b.dataset.act === 'copy') { await navigator.clipboard.writeText(b.dataset.v); b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy'), 1500); }
+      else if (b.dataset.act === 'save') { await api(`/rest/v1/games?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', body: { origins: parseOrigins(card.querySelector('[data-f=origins]').value) }, prefer: 'return=minimal' }); say('Saved. It can take up to a minute to apply.'); }
+      else if (b.dataset.act === 'rotate') { if (confirm('Rotate the key? The old key stops working within a minute and your game must be updated.')) { await api('/rest/v1/rpc/rotate_game_key', { method: 'POST', body: { game_id: id } }); render(); } }
+      else if (b.dataset.act === 'delete') { if (confirm('Delete this API and its key? Its lobbies stop working. This cannot be undone.')) { await api(`/rest/v1/games?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' }); render(); } }
+    } catch (e) { say(e.message, true); }
+  }));
+}
+
+async function render() {
+  $('who').textContent = ''; $('out').hidden = true;
+  if (!configured || !session) return signedOut(hashError);
+  try { await signedIn(); }
+  catch (e) { signedOut(e.message); }
+}
+render();
+</script>
+</body>
+</html>

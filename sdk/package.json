@@ -1,0 +1,15 @@
+{
+  "name": "lobbi",
+  "version": "0.1.0",
+  "description": "Free browser-first P2P lobbies for small multiplayer games",
+  "type": "module",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": { ".": { "types": "./src/index.d.ts", "default": "./src/index.js" } },
+  "files": ["src"],
+  "sideEffects": false,
+  "keywords": ["multiplayer", "webrtc", "p2p", "lobby", "gamedev"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/xTyskt/lobbi.git" }
+}

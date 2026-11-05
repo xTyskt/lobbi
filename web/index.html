@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lobbi: multiplayer lobbies for tiny browser games</title>
+<meta name="description" content="Free lobbies, join codes and peer-to-peer connections with relay fallback for small browser games.">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<nav class="nav" aria-label="Main">
+  <div class="wrap">
+    <a class="mark" href="#top">lobbi</a>
+    <a class="l opt" href="#how">How it works</a>
+    <a class="l opt" href="#plans">Tiers</a>
+    <a class="l" href="docs.html">Docs</a>
+    <a class="btn sm" href="account.html">Sign in</a>
+  </div>
+</nav>
+
+<main id="top" class="wrap">
+  <div class="hero">
+    <div>
+      <p class="eyebrow">Free to start · early v0.1</p>
+      <h1>Multiplayer lobbies for tiny browser games.</h1>
+      <p class="lede">Give your game a lobby, a join code and peer-to-peer connections in a few lines. Players connect directly to each other. Lobbi makes the introductions and falls back to a relay when a network gets in the way.</p>
+      <div class="cta">
+        <a class="btn" href="#demo">Try the live demo</a>
+        <a class="btn ghost" href="#code">See the code</a>
+      </div>
+    </div>
+    <div class="ticket" aria-hidden="true">
+      <small>Lobby code</small>
+      <div class="code">K7QXM</div>
+      <div class="dots"><i style="background:#3355ff"></i><i style="background:#ff5d73"></i><i style="background:#19b394"></i><i style="background:#ffb629"></i></div>
+      <span class="pill">Direct connection</span>
+    </div>
+  </div>
+
+  <section id="demo">
+    <h2>Live demo</h2>
+    <p class="sub">A shared cursor board. The first person in becomes the host; everyone else connects to the host. Open this page in a second tab or on your phone.</p>
+    <div class="stage">
+      <div class="board" id="board">
+        <canvas id="cv" aria-label="Shared cursor board"></canvas>
+        <div class="overlay" id="overlay">
+          <h3 id="ovTitle">Join the board</h3>
+          <p id="ovText">You will join or create a lobby, and then connect to the host.</p>
+          <button class="btn" id="join" type="button">Join the board</button>
+        </div>
+      </div>
+      <aside aria-live="polite">
+        <dl>
+          <dt>Role</dt><dd id="role">Not joined</dd>
+          <dt>Lobby code</dt><dd class="codev" id="code">-</dd>
+          <dt>Players</dt><dd id="players">-</dd>
+          <dt>Connection</dt><dd id="path">-</dd>
+          <dt>Worst ping</dt><dd id="rtt">-</dd>
+        </dl>
+        <p id="status">Not connected.</p>
+        <button class="btn ghost" id="leave" type="button" hidden>Leave lobby</button>
+      </aside>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2>How it works</h2>
+    <p class="sub">Your game talks to Lobbi only to find other players. Game traffic goes player to player.</p>
+    <div class="steps">
+      <div class="card"><span class="num">1</span><h3>Create or join a lobby</h3><p>One call: <code>joinOrCreate</code>, or join by code. The first player in becomes the host and runs the game.</p></div>
+      <div class="card"><span class="num">2</span><h3>Connect directly</h3><p>Lobbi sets up the connection between players, so they connect peer to peer with no game server in the middle.</p></div>
+      <div class="card"><span class="num">3</span><h3>Relay if needed</h3><p>When a network blocks direct connections, traffic goes through a relay. Relay access is granted only to players inside a lobby.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What you get</h2>
+    <div class="grid" style="margin-top:18px">
+      <div class="card"><h3>Lobbies</h3><p>Join codes, quick match by name, a public list with paging, passwords and kick.</p></div>
+      <div class="card"><h3>Fast and safe channels</h3><p>Unreliable for positions, reliable for events. Large messages on the safe channel are split and reassembled for you.</p></div>
+      <div class="card"><h3>Adaptive player cap</h3><p>Lobbi measures the host's upload and watches tick time, then raises or lowers how many players new joins can admit.</p></div>
+      <div class="card"><h3>Locked-down keys</h3><p>Each game has a public key tied to an allow-list of origins, plus rate limits and per-network caps.</p></div>
+      <div class="card"><h3>Reconnects</h3><p>A short network blip does not end the lobby. Clients resume their session within a grace window.</p></div>
+      <div class="card"><h3>Tiny SDK</h3><p>One ES module, no dependencies, TypeScript types included.</p></div>
+    </div>
+  </section>
+
+  <section id="code">
+    <h2>Add it to your game</h2>
+    <p class="sub">Install the SDK, connect with your game's public key, then join or create a lobby.</p>
+    <div class="codebox">
+      <button class="btn ghost copy" id="copy" type="button">Copy</button>
+<pre id="snippet"><code>import { Lobbi } from 'lobbi';
+
+const net = await Lobbi.connect({ key: 'pk_...', url: 'wss://api.example.com' });
+const lobby = await net.joinOrCreate({ name: 'room-1', max: 8 });
+
+lobby.on('message', (from, data) =&gt; { /* apply game state */ });
+lobby.on('closed', (reason) =&gt; { /* lobby over: back to the menu */ });
+
+lobby.send(myInput);                 // players send to the host
+if (lobby.isHost) lobby.reportTick(ms); // lets the server adapt the player cap</code></pre>
+    </div>
+  </section>
+
+  <section id="limits">
+    <h2>Good to know</h2>
+    <ul class="limits">
+      <li><strong>The host is the authority.</strong> The lobby creator runs the game, so a host can cheat. That is fine for casual games, not for competitive ones.</li>
+      <li><strong>If the host leaves, the lobby closes.</strong> Host migration is planned but not built yet.</li>
+      <li><strong>Star topology.</strong> Players connect to the host, not to each other.</li>
+      <li><strong>Direct connections reveal IP addresses</strong> to the other players in the lobby.</li>
+      <li><strong>It is early.</strong> v0.1 works end to end in testing, but expect rough edges.</li>
+    </ul>
+  </section>
+
+  <section id="plans">
+    <h2>Tiers</h2>
+    <p class="sub">Every API you create has its own tier. Connection setup is unlimited on all of them; only the relay has a total allowance. Paid tiers are planned, not available yet, and may change before launch.</p>
+    <div class="plans">
+      <div class="plan on"><span class="tag">Available now</span><h3>Free (tier 0)</h3><div class="price">$0</div>
+        <ul><li>3 APIs per account, each with its own lobbies</li><li>Up to 8 players per lobby</li><li>25 open lobbies per API</li><li>150 simultaneous connections per API</li><li>Unlimited connection setup</li><li>Relay: 3,000 relay joins in total per API</li><li>Community support</li></ul>
+        <a class="btn sm" href="account.html">Sign in to start</a></div>
+      <div class="plan off" aria-disabled="true"><span class="tag">Planned</span><h3>Indie (tier 1)</h3><div class="price tbd">Price to be announced</div>
+        <ul><li>10 APIs per account</li><li>Up to 16 players per lobby</li><li>150 open lobbies per API</li><li>1,000 simultaneous connections per API</li><li>Unlimited connection setup</li><li>Relay: 30,000 relay joins in total</li><li>Email support</li></ul>
+        <a class="btn sm" aria-disabled="true" href="#plans" tabindex="-1">Not available yet</a></div>
+      <div class="plan off" aria-disabled="true"><span class="tag">Planned</span><h3>Studio (tier 2)</h3><div class="price tbd">Price to be announced</div>
+        <ul><li>50 APIs per account</li><li>Up to 32 players per lobby</li><li>1,000 open lobbies per API</li><li>8,000 simultaneous connections per API</li><li>Unlimited connection setup</li><li>Relay: 300,000 relay joins in total</li><li>Priority support</li></ul>
+        <a class="btn sm" aria-disabled="true" href="#plans" tabindex="-1">Not available yet</a></div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <h2>Questions</h2>
+    <div style="margin-top:16px">
+      <details><summary>Is it free?</summary><p>Yes, the Free tier costs nothing. Paid tiers with higher limits are planned but not available yet.</p></details>
+      <details><summary>Do I need to run a server?</summary><p>No. Create an API in the dashboard, copy its key into your game and you are done.</p></details>
+      <details><summary>What if players cannot connect directly?</summary><p>Their traffic goes through a relay. Relay bandwidth is the main cost, so each API has a total relay allowance and relay access is only granted to players inside a lobby.</p></details>
+      <details><summary>What kind of games fit?</summary><p>Small casual games with a handful of players per lobby, where one player can host.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Lobbi v0.1</span>
+    <span><a href="docs.html">Docs</a> · <a href="account.html">Dashboard</a> · <a href="https://github.com/xTyskt/lobbi">GitHub</a></span>
+  </div>
+</footer>
+
+<script type="module">
+import { Lobbi } from './lobbi.js';
+import defaults from './config.js';
+
+const q = new URLSearchParams(location.search);
+const cfg = { url: q.get('api') || defaults.url, key: q.get('key') || defaults.key };
+const $ = (id) => document.getElementById(id);
+const COLORS = ['#3355ff', '#ff5d73', '#19b394', '#ffb629', '#8b5cf6', '#0ea5e9', '#ec4899', '#84cc16'];
+const colorOf = (id) => { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
+
+let net = null, lobby = null, timers = [];
+let me = { x: 0.5, y: 0.5 };
+let world = new Map();
+window.lobbiDebug = { get lobby() { return lobby; } }; // used by the optional browser test
+
+const cv = $('cv'), ctx = cv.getContext('2d');
+function fit() {
+  const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+}
+new ResizeObserver(fit).observe(cv); fit();
+$('board').addEventListener('pointermove', (e) => {
+  const r = cv.getBoundingClientRect();
+  me = { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+});
+
+function status(text, bad = false) { const s = $('status'); s.textContent = text; s.className = bad ? 'error' : ''; }
+function overlay(title, text, button) {
+  $('ovTitle').textContent = title; $('ovText').textContent = text;
+  $('join').textContent = button; $('join').disabled = false; $('overlay').hidden = false;
+}
+function pill(text, warn) { return `<span class="pill${warn ? ' warn' : ''}">${text}</span>`; }
+function refresh() {
+  if (!lobby || lobby.dead) return;
+  $('role').textContent = lobby.isHost ? 'Host' : 'Player';
+  $('code').textContent = lobby.code;
+  $('players').textContent = `${lobby.members.length} of ${lobby.max}`;
+  const st = lobby.stats().filter((s) => s.ready);
+  $('path').innerHTML = st.length ? (st.some((s) => s.relayed) ? pill('Relayed', true) : pill('Direct')) : 'Connecting';
+  const rtt = Math.max(0, ...st.map((s) => s.rttMs));
+  $('rtt').textContent = lobby.isHost && st.length ? `${Math.round(rtt)} ms` : '-';
+}
+function stopTimers() { timers.forEach(clearInterval); timers = []; world = new Map(); }
+
+function bind(l) {
+  l.on('playerJoined', refresh);
+  l.on('playerLeft', (id) => { world.delete(id); refresh(); });
+  l.on('playerConnected', ({ id }) => { world.set(id, { x: 0.5, y: 0.5 }); refresh(); status('A player connected.'); });
+  l.on('connected', ({ relayed }) => { refresh(); status(relayed ? 'Connected to the host through the relay.' : 'Connected directly to the host.'); });
+  l.on('cap', refresh);
+  l.on('hostUnresponsive', () => status('The host is not responding.', true));
+  l.on('message', (from, data) => {
+    try {
+      const m = JSON.parse(data);
+      if (l.isHost) world.set(from, { x: m.x, y: m.y });
+      else world = new Map(m.s.map(([id, x, y]) => [id, { x, y }]));
+    } catch {}
+  });
+  l.on('closed', (reason) => {
+    stopTimers();
+    const why = { 'host-left': 'The host left, so the lobby closed.', 'host-lost': 'The host lost connection, so the lobby closed.', kicked: 'The host removed you.', 'connection-lost': 'You lost your connection.', 'p2p-failed': 'Your connection to the host failed.', 'connect-timeout': 'Could not connect to the host in time.', 'server-restart': 'Lobbi restarted. Please rejoin.' }[reason] || 'The lobby closed.';
+    for (const id of ['role', 'code', 'players', 'path', 'rtt']) $(id).textContent = id === 'role' ? 'Not joined' : '-';
+    $('leave').hidden = true; lobby = null;
+    status(why);
+    overlay('Lobby closed', why, 'Join again');
+  });
+  timers.push(setInterval(() => {   // 20 Hz: players send their cursor, the host collects and broadcasts
+    if (l.dead) return;
+    if (l.isHost) {
+      const t0 = performance.now();
+      world.set(l.id, { ...me });
+      l.broadcast(JSON.stringify({ s: [...world].map(([id, p]) => [id, +p.x.toFixed(3), +p.y.toFixed(3)]) }));
+      l.reportTick(performance.now() - t0, 50);
+    } else l.send(JSON.stringify({ x: +me.x.toFixed(3), y: +me.y.toFixed(3) }));
+  }, 50));
+  timers.push(setInterval(refresh, 1000));
+}
+
+async function join() {
+  $('join').disabled = true;
+  status('Connecting...');
+  try {
+    if (!net) net = await Lobbi.connect({ ...cfg, perPlayerKbps: 24 });
+    net.on('error', (e) => status(e.message, true));
+    lobby = await net.joinOrCreate({ name: 'cursor-party', max: 8, meta: { game: 'cursor-party' } });
+    $('overlay').hidden = true; $('leave').hidden = false;
+    bind(lobby); refresh();
+    status(lobby.isHost ? 'You are the host. Waiting for players...' : 'Joined. Connecting to the host...');
+  } catch (e) {
+    net?.close(); net = null;
+    status(e.message, true);
+    overlay('Could not join', e.code === 'connect_failed' ? "Check that this page's address is in the game's allowed origins." : e.message, 'Try again');
+  }
+}
+$('join').addEventListener('click', join);
+$('leave').addEventListener('click', async () => { await lobby?.leave(); });
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('snippet').innerText); $('copy').textContent = 'Copied'; }
+  catch { $('copy').textContent = 'Press Ctrl+C'; }
+  setTimeout(() => { $('copy').textContent = 'Copy'; }, 1800);
+});
+
+function draw() {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  if (lobby && !lobby.dead) {
+    const all = new Map(world); all.set(lobby.id, me);
+    for (const [id, p] of all) {
+      const x = p.x * w, y = p.y * h, c = colorOf(id), self = id === lobby.id;
+      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, self ? 9 : 7, 0, 7); ctx.fill();
+      ctx.font = '600 12px system-ui, sans-serif'; ctx.fillText(self ? 'you' : id.slice(0, 3), x + 12, y + 4);
+    }
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

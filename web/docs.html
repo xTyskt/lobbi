@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lobbi docs</title>
+<meta name="description" content="Lobbi SDK documentation: connect, create and join lobbies, send messages, handle events, relay and limits.">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<nav class="nav" aria-label="Main"><div class="wrap">
+  <a class="mark" href="index.html">lobbi</a>
+  <a class="l opt" href="index.html#demo">Demo</a>
+  <a class="l opt" href="index.html#plans">Plans</a>
+  <a class="l" href="https://github.com/xTyskt/lobbi">GitHub</a>
+  <a class="btn sm" href="account.html">Sign in</a>
+</div></nav>
+
+<main class="wrap docs">
+  <nav class="toc" aria-label="On this page">
+    <a href="#start">Quick start</a><a href="#concepts">Concepts</a><a href="#connect">Connecting</a><a href="#lobbies">Lobbies</a>
+    <a href="#messages">Messages</a><a href="#events">Events</a><a href="#errors">Errors</a><a href="#ice">Connections and relay</a>
+    <a href="#keys">Keys and limits</a>
+  </nav>
+  <div class="doc">
+    <h2 id="start">Quick start</h2>
+    <p>1. Sign in on the <a href="account.html">dashboard</a> with Google, create an API (give it a name) and copy its public key (<code>pk_...</code>). Add your site's address to the API's allowed origins. Each API has its own lobbies, separate from all your other APIs.</p>
+    <p>2. Add the SDK. It is one ES module with no dependencies: copy <code>lobbi.js</code> into your project (an npm package named <code>lobbi</code> is planned).</p>
+<pre><code>import { Lobbi } from './lobbi.js';
+
+const net = await Lobbi.connect({ key: 'pk_...', url: 'wss://api.example.com' });
+const lobby = await net.joinOrCreate({ name: 'room-1', max: 8 });
+
+lobby.on('message', (from, data) =&gt; { /* apply game state */ });
+lobby.on('closed', (reason) =&gt; { /* back to the menu */ });
+lobby.send(JSON.stringify({ x: 1, y: 2 }));</code></pre>
+
+    <h2 id="concepts">Concepts</h2>
+    <ul>
+      <li><strong>Host.</strong> The player who creates a lobby. The host runs the game and holds a WebRTC connection to every player.</li>
+      <li><strong>Star topology.</strong> Players send to the host; the host sends to one player or to everyone. Players do not connect to each other.</li>
+      <li><strong>Lobby closes with the host.</strong> If the host leaves or disconnects, every player gets <code>closed</code>. A brief network blip is tolerated for about 10 seconds. Host migration is not built yet.</li>
+      <li><strong>Channels.</strong> <code>fast</code> is unreliable and unordered (positions, inputs), limited to 16 KB per message. <code>safe</code> is reliable and ordered (chat, events); messages up to 8 MB are split and reassembled for you.</li>
+      <li><strong>Adaptive cap.</strong> Lobbi measures the host's upload speed and watches tick time, then raises or lowers how many players new joins can admit. It never removes players already in.</li>
+    </ul>
+
+    <h2 id="connect">Connecting</h2>
+<pre><code>const net = await Lobbi.connect({ key, url, perPlayerKbps?, tickBudgetMs? });</code></pre>
+    <div class="scroll"><table>
+      <tr><th>Option</th><th>Meaning</th></tr>
+      <tr><td><code>key</code></td><td>Your game's public key. Safe to ship in client code; it only works from the origins you allow.</td></tr>
+      <tr><td><code>url</code></td><td>Lobbi address, for example <code>wss://api.example.com</code>.</td></tr>
+      <tr><td><code>perPlayerKbps</code></td><td>Expected bandwidth per player. Sizes the adaptive cap. Default 64.</td></tr>
+      <tr><td><code>tickBudgetMs</code></td><td>Your simulation tick budget (1000 / tick rate). Default 50.</td></tr>
+    </table></div>
+    <p>Events on <code>net</code>: <code>disconnected</code>, <code>reconnecting</code>, <code>reconnected</code> (with <code>{ resumed }</code>), <code>offline</code> and <code>error</code>. Call <code>net.close()</code> to disconnect.</p>
+
+    <h2 id="lobbies">Lobbies</h2>
+    <div class="scroll"><table>
+      <tr><th>Call</th><th>What it does</th></tr>
+      <tr><td><code>net.joinOrCreate(opts)</code></td><td>Joins the fullest open lobby with that <code>name</code>, or creates it and makes you the host.</td></tr>
+      <tr><td><code>net.create(opts)</code></td><td>Creates a lobby. Options: <code>name</code>, <code>max</code>, <code>public</code>, <code>password</code>, <code>meta</code> (small JSON object, 1 KB), <code>perPlayerKbps</code>.</td></tr>
+      <tr><td><code>net.join(code, { password })</code></td><td>Joins by the 5-character code.</td></tr>
+      <tr><td><code>net.list({ name }, cursor)</code></td><td>Public lobbies with free slots, 50 per page: <code>{ items, cursor }</code>.</td></tr>
+      <tr><td><code>lobby.leave()</code></td><td>Leaves. If you are the host the lobby closes.</td></tr>
+      <tr><td><code>lobby.kick(id)</code> / <code>lobby.setMeta(obj)</code></td><td>Host only.</td></tr>
+    </table></div>
+    <p>Useful properties: <code>lobby.code</code>, <code>id</code>, <code>hostId</code>, <code>isHost</code>, <code>max</code> (current admission cap), <code>members</code>, <code>connected</code>, <code>meta</code>.</p>
+
+    <h2 id="messages">Messages</h2>
+<pre><code>lobby.send(data, { to?, channel? });   // string, ArrayBuffer or typed array
+lobby.broadcast(data, { channel?, except? });
+if (lobby.isHost) lobby.reportTick(ms);  // call once per simulation tick</code></pre>
+    <p>Players always send to the host. The host sends to <code>to</code>, or to everyone when it is omitted. <code>send</code> returns <code>false</code> if nothing was sent (not connected yet, or a <code>fast</code> packet dropped because the queue was full). <code>lobby.stats()</code> lists each connection with <code>relayed</code>, <code>rttMs</code> and queue size.</p>
+
+    <h2 id="events">Lobby events</h2>
+    <div class="scroll"><table>
+      <tr><th>Event</th><th>When</th></tr>
+      <tr><td><code>playerConnected({ id, relayed })</code></td><td>Host: a player's connection is ready.</td></tr>
+      <tr><td><code>connected({ relayed })</code></td><td>Player: your connection to the host is ready.</td></tr>
+      <tr><td><code>playerJoined(id)</code> / <code>playerLeft(id, reason)</code></td><td>Roster changes, for everyone.</td></tr>
+      <tr><td><code>message(from, data, channel)</code></td><td>A message arrived.</td></tr>
+      <tr><td><code>cap(max)</code> / <code>meta(obj)</code></td><td>The admission cap or lobby metadata changed.</td></tr>
+      <tr><td><code>closed(reason)</code></td><td>The lobby is over. Reasons: <code>host-left</code>, <code>host-lost</code>, <code>kicked</code>, <code>p2p-failed</code>, <code>connect-timeout</code>, <code>connection-lost</code>, <code>server-restart</code>, <code>left</code>.</td></tr>
+      <tr><td><code>hostUnfit</code> / <code>hostUnresponsive</code></td><td>The host's upload is very low / the host stopped answering.</td></tr>
+    </table></div>
+
+    <h2 id="errors">Errors</h2>
+    <p>Calls reject with a <code>LobbiError</code> that has a <code>code</code>.</p>
+    <div class="scroll"><table>
+      <tr><th>Code</th><th>Meaning</th></tr>
+      <tr><td><code>connect_failed</code></td><td>Wrong address or key, or your site's origin is not allowed.</td></tr>
+      <tr><td><code>not_found</code>, <code>full</code>, <code>bad_password</code></td><td>Join problems.</td></tr>
+      <tr><td><code>lobby_limit</code>, <code>account_lobby_limit</code>, <code>ip_lobby_limit</code>, <code>create_rate</code></td><td>A limit was reached (game, plan, network or creation rate).</td></tr>
+      <tr><td><code>rate_limited</code></td><td>Too many messages to the server.</td></tr>
+      <tr><td><code>too_big</code></td><td>A <code>fast</code> message over 16 KB, or any message over 8 MB.</td></tr>
+    </table></div>
+
+    <h2 id="ice">Connections and relay</h2>
+    <p>Players first try to connect directly to the host. The SDK and the browser handle this for you; there is nothing to configure.</p>
+    <ul>
+      <li><strong>Direct.</strong> The usual case. Game data goes straight between players and costs nothing.</li>
+      <li><strong>Relay.</strong> Used only when a network blocks direct connections. The relay carries the game data, so it is limited: Lobbi grants relay access only to players inside a lobby with at least two members, and each API has a total relay allowance.</li>
+    </ul>
+    <p>The connection row in the demo shows <em>Direct</em> or <em>Relayed</em>. Expect most connections to be direct.</p>
+
+    <h2 id="keys">Keys, APIs and limits</h2>
+    <ul>
+      <li><strong>Each API is independent.</strong> It has its own public key, tier and lobbies. Lobby codes, lists and quick match never cross from one API to another, even on the same account.</li>
+      <li>Add the exact origins that may use the key (for example <code>https://mygame.example.com</code>; no paths, no wildcards). Rotate the key from the dashboard if it leaks.</li>
+      <li><strong>Tiers.</strong> Every API has a tier; 0 is Free. Free allows 8 players per lobby, 25 open lobbies and 150 simultaneous connections per API, and 3 APIs per account. See <a href="index.html#plans">Tiers</a>.</li>
+      <li><strong>Connection setup is unlimited.</strong> Only the relay is limited, by a total allowance per API (3,000 relay joins on Free), not a daily one. When it is used up, players who can connect directly still can; others cannot join.</li>
+      <li>Origin checks stop other websites, not scripts. Treat the key as public and rely on the limits.</li>
+    </ul>
+
+    </div>
+</main>
+<footer><div class="wrap"><span>Lobbi v0.1</span><span><a href="index.html">Home</a> · <a href="account.html">Dashboard</a></span></div></footer>
+</body>
+</html>

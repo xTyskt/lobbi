@@ -1,0 +1,9 @@
+{
+  "name": "lobbi-public",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "sync": "node scripts/sync-sdk.mjs",
+    "serve:web": "npx --yes serve web -l 8000"
+  }
+}

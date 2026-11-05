@@ -1,21 +1,59 @@
-MIT License
+Lobbi Source-Available License
 
-Copyright (c) 2026 Lobbi contributors
+Copyright (c) 2026 xTyskt. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository contains the Lobbi website and browser SDK (the "Software").
+The Software is not open source. You may only use it as described below.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. WHAT YOU MAY DO
+   a. View and read the source code.
+   b. Copy the SDK file (sdk/src/index.js, also published as web/lobbi.js)
+      into your own game or application, unmodified, solely so that your
+      application can connect to the official Lobbi service using an API key
+      issued to you by Lobbi.
+   c. Run the website locally for the sole purpose of evaluating the Software.
+   d. Fork this repository on GitHub, as permitted by GitHub's Terms of Service,
+      solely for the purposes of viewing and proposing changes to this
+      repository.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. WHAT YOU MAY NOT DO
+   Without prior written permission from the copyright holder, you may not:
+   a. copy, redistribute, publish, sublicense, rent, lease or sell the
+      Software or any part of it, except as allowed in section 1;
+   b. modify the Software or create derivative works, except for the
+      unmodified inclusion described in section 1(b);
+   c. use the Software, or anything derived from it, to build, host or offer
+      a competing or alternative lobby, matchmaking, signaling or relay
+      service;
+   d. remove or alter this license or any copyright notice;
+   e. use the Lobbi name, logo or branding to suggest endorsement or origin;
+   f. reverse engineer, scrape or abuse the Lobbi service, or circumvent its
+      keys, origin checks, rate limits or usage allowances.
+
+3. THE SERVICE
+   Use of the hosted Lobbi service is separate from this license and is
+   subject to its own limits and terms, which may change at any time. The
+   copyright holder may suspend or terminate access to the service at any
+   time.
+
+4. OWNERSHIP
+   The Software is licensed, not sold. All rights not expressly granted are
+   reserved by the copyright holder.
+
+5. TERMINATION
+   This license ends automatically if you breach it. On termination you must
+   stop using the Software and delete all copies, except where you hold a
+   separate written agreement.
+
+6. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+7. LIMITATION OF LIABILITY
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER SHALL NOT BE
+   LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+For permission requests, contact the copyright holder through the GitHub
+profile that owns this repository.
